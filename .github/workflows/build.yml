@@ -17,6 +17,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Build & Push
         run: | 
           sudo apt-get install -y bgpdump
           ./builder/build_asn_country_db.sh

@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install deps
-        run: apt install bgpdump
+        run: sudo sudo apt-get install -y bgpdump
       - name: Build databases
         run: ./builder/build_asn_country_db.sh
       - name: Push

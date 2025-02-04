@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'builder/**'
+      - '.github/**'
   schedule:
     - cron: "16 13 * * *"
 

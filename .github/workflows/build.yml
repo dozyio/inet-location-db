@@ -1,4 +1,4 @@
-name: Build ASN & IP DatabaseC databases
+name: Build ASN & IP Database
 
 on:
   push:
@@ -12,10 +12,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install deps
         run: sudo sudo apt-get install -y bgpdump
+
       - name: Build databases
         run: ./builder/build_asn_country_db.sh
+
       - name: Push
         run: ./builder/commit-push.sh

@@ -14,8 +14,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install deps
         run: sudo sudo apt-get install -y bgpdump
@@ -24,4 +22,9 @@ jobs:
         run: ./builder/build_asn_country_db.sh
 
       - name: Push
-        run: ./builder/commit-push.sh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Updated ASN & IP databases"
+          git push

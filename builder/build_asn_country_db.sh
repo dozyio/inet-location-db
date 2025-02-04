@@ -402,7 +402,7 @@ parse_rib
 echo "=== Building prefix->Country mapping ==="
 build_prefix2country
 
-echo "=== Building delegated prefix->Country file (new) ==="
+echo "=== Building delegated prefix->Country mapping ==="
 create_delegated_prefix_country
 
 echo ""

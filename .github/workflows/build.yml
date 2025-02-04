@@ -1,0 +1,20 @@
+name: Build ASN & IP DatabaseC databases
+
+on:
+  push:
+    paths:
+      - 'builder/**'
+  schedule:
+    - cron: "16 13 * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: apt install bgpdump
+      - name: Build databases
+        run: ./builder/build_asn_country_db.sh
+      - name: Push
+        run: ./builder/commit-push.sh

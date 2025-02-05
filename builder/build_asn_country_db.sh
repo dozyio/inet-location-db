@@ -68,8 +68,8 @@ RIPE_FILE="delegated-ripencc-extended-${DATE}.bz2"
 RIPE_FILE_UNZIP="delegated-ripencc-extended-${DATE}"
 RIPE_URL="https://ftp.ripe.net/ripe/stats/${YEAR}/${RIPE_FILE}"
 
-# The final output for all RIR data -> asn2country_all.txt
-ASN2COUNTRY_ALL="asn2country_all.txt"
+# The final output for all RIR data -> asn2country.txt
+ASN2COUNTRY="asn2country_all.txt"
 
 # RouteViews RIB
 RIB_FILE="rib.${DATE}.0000.bz2"
@@ -164,8 +164,8 @@ download_apnic() {
 }
 
 parse_rir_delegation() {
-  echo "Parsing RIR files into $ASN2COUNTRY_ALL..."
-  rm -f "$ASN2COUNTRY_ALL"
+  echo "Parsing RIR files into $ASN2COUNTRY..."
+  rm -f "$ASN2COUNTRY"
 
   # Process any file named "delegated-*-extended-<DATE>" (excluding .bz2)
   for file in delegated-*-"${DATE}"; do
@@ -188,15 +188,15 @@ parse_rir_delegation() {
           print (start_asn + i) " " cc
         }
       }
-    ' "$file" >> "$ASN2COUNTRY_ALL"
+    ' "$file" >> "$ASN2COUNTRY"
   done
 
-  if [ -s "$ASN2COUNTRY_ALL" ]; then
-    sort -n -k1 "$ASN2COUNTRY_ALL" | uniq > "${ASN2COUNTRY_ALL}.tmp"
-    mv "${ASN2COUNTRY_ALL}.tmp" "$ASN2COUNTRY_ALL"
-    echo "Created ASN->Country file: $ASN2COUNTRY_ALL"
+  if [ -s "$ASN2COUNTRY" ]; then
+    sort -n -k1 "$ASN2COUNTRY" | uniq > "${ASN2COUNTRY}.tmp"
+    mv "${ASN2COUNTRY}.tmp" "$ASN2COUNTRY"
+    echo "Created ASN->Country file: $ASN2COUNTRY"
   else
-    echo "Warning: $ASN2COUNTRY_ALL is empty. No data parsed."
+    echo "Warning: $ASN2COUNTRY is empty. No data parsed."
   fi
 }
 
@@ -239,14 +239,14 @@ parse_rib() {
 }
 
 build_prefix2country() {
-  echo "Combining $PREFIX2ASN + $ASN2COUNTRY_ALL -> $PREFIX2COUNTRY..."
+  echo "Combining $PREFIX2ASN + $ASN2COUNTRY -> $PREFIX2COUNTRY..."
 
   if [ ! -s "$PREFIX2ASN" ]; then
     echo "Error: $PREFIX2ASN missing or empty."
     return 1
   fi
-  if [ ! -s "$ASN2COUNTRY_ALL" ]; then
-    echo "Error: $ASN2COUNTRY_ALL missing or empty."
+  if [ ! -s "$ASN2COUNTRY" ]; then
+    echo "Error: $ASN2COUNTRY missing or empty."
     return 1
   fi
 
@@ -264,16 +264,13 @@ build_prefix2country() {
       if (cc == "") cc="Unknown"
       print prefix, cc
     }
-  ' "$ASN2COUNTRY_ALL" "$PREFIX2ASN" > "$PREFIX2COUNTRY_TMP"
+  ' "$ASN2COUNTRY" "$PREFIX2ASN" > "$PREFIX2COUNTRY_TMP"
 
   sort -u "$PREFIX2COUNTRY_TMP" > "$PREFIX2COUNTRY"
   rm -f "$PREFIX2COUNTRY_TMP"
   echo "Wrote prefix->Country mappings to $PREFIX2COUNTRY"
 }
 
-########################################
-#  New Function: delegated prefix->cc  #
-########################################
 # We parse lines of the form:
 #   <registry>|<cc>|<type>|<start>|<value>|<date>|<status>
 # If <type> is 'ipv4' or 'ipv6' and <value> is a power of two, we convert to a prefix <start_ip>/<cidr>
@@ -375,7 +372,7 @@ EOF
   if [ -s "$DELEGATED_PREFIX_COUNTRY" ]; then
     sort -u "$DELEGATED_PREFIX_COUNTRY" > "${DELEGATED_PREFIX_COUNTRY}.tmp"
     mv "${DELEGATED_PREFIX_COUNTRY}.tmp" "$DELEGATED_PREFIX_COUNTRY"
-    echo "Wrote delegated-prefix-country.txt with IPv4/IPv6 power-of-two blocks."
+    echo "Wrote delegated-prefix-country.txt."
   else
     echo "No valid prefix lines found in delegated files."
     rm -f "$DELEGATED_PREFIX_COUNTRY"
@@ -392,7 +389,7 @@ download_other_rirs
 download_ripe
 download_apnic
 
-echo "=== Parsing RIR data into $ASN2COUNTRY_ALL ==="
+echo "=== Parsing RIR data into $ASN2COUNTRY ==="
 parse_rir_delegation
 
 echo "=== Downloading & parsing RIB dump ==="
@@ -405,9 +402,15 @@ build_prefix2country
 echo "=== Building delegated prefix->Country mapping ==="
 create_delegated_prefix_country
 
+echo "=== Compressing files ==="
+bzip asn2country.txt
+bzip prefix2asn.txt
+bzip prefix2country.txt
+bzip prefix2countrydelegated.txt
+
 echo ""
 echo "All done! Key outputs:"
-echo "  - $ASN2COUNTRY_ALL   (ASN -> Country)"
+echo "  - $ASN2COUNTRY   (ASN -> Country)"
 echo "  - $PREFIX2ASN        (Prefix -> ASN)"
 echo "  - $PREFIX2COUNTRY    (Prefix -> Country)"
 echo "  - $DELEGATED_PREFIX_COUNTRY (Delegated Prefix -> Country)"

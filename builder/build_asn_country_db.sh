@@ -51,25 +51,24 @@ MONTH=${DATE:4:2}   # next 2 digits, e.g. 01
 DAY=${DATE:6:2}     # last 2 digits, e.g. 10
 
 # ARIN, APNIC, LACNIC, AFRINIC remain unchanged in this example
-ARIN_FILE="delegated-arin-extended-${DATE}"
+# ARIN_FILE="delegated-arin-extended-${DATE}"
+ARIN_FILE="delegated-arin-extended-latest"
 ARIN_URL="https://ftp.arin.net/pub/stats/arin/${ARIN_FILE}"
 
-APNIC_FILE="delegated-apnic-extended-${DATE}.gz"
-APNIC_FILE_UNZIP="delegated-apnic-extended-${DATE}"
-APNIC_URL="https://ftp.apnic.net/apnic/stats/apnic/${YEAR}/${APNIC_FILE}"
+APNIC_FILE="delegated-apnic-extended-latest"
+APNIC_URL="https://ftp.apnic.net/apnic/stats/apnic/${APNIC_FILE}"
 
-LACNIC_FILE="delegated-lacnic-extended-${DATE}"
+LACNIC_FILE="delegated-lacnic-extended-latest"
 LACNIC_URL="https://ftp.lacnic.net/pub/stats/lacnic/${LACNIC_FILE}"
 
-AFRINIC_FILE="delegated-afrinic-extended-${DATE}"
-AFRINIC_URL="https://ftp.afrinic.net/pub/stats/afrinic/${YEAR}/${AFRINIC_FILE}"
+AFRINIC_FILE="delegated-afrinic-extended-latest"
+AFRINIC_URL="https://ftp.afrinic.net/pub/stats/afrinic/${AFRINIC_FILE}"
 
-RIPE_FILE="delegated-ripencc-extended-${DATE}.bz2"
-RIPE_FILE_UNZIP="delegated-ripencc-extended-${DATE}"
-RIPE_URL="https://ftp.ripe.net/ripe/stats/${YEAR}/${RIPE_FILE}"
+RIPE_FILE="delegated-ripencc-extended-latest"
+RIPE_URL="https://ftp.ripe.net/ripe/stats/${RIPE_FILE}"
 
 # The final output for all RIR data -> asn2country.txt
-ASN2COUNTRY="asn2country_all.txt"
+ASN2COUNTRY="asn2country.txt"
 
 # RouteViews RIB
 RIB_FILE="rib.${DATE}.0000.bz2"
@@ -87,11 +86,12 @@ DELEGATED_PREFIX_COUNTRY="prefix2countrydelegated.txt"
 # 3) Functions                 #
 ################################
 
-# Download ARIN/LACNIC/AFRINIC if missing (uncompressed).
-download_other_rirs() {
+download_rirs() {
   for info in \
       "$ARIN_URL $ARIN_FILE" \
+      "$APNIC_URL $APNIC_FILE" \
       "$LACNIC_URL $LACNIC_FILE" \
+      "$RIPE_URL $RIPE_FILE" \
       "$AFRINIC_URL $AFRINIC_FILE"; do
 
     url=$(echo "$info" | awk '{print $1}')
@@ -109,71 +109,16 @@ download_other_rirs() {
   done
 }
 
-# Download the RIPE file if missing, then decompress to a .txt file
-download_ripe() {
-  if [ -f "$RIPE_FILE_UNZIP" ]; then
-    echo "  Found existing uncompressed RIPE file: $RIPE_FILE_UNZIP (skipping download)"
-    return
-  fi
-
-  if [ -f "$RIPE_FILE" ]; then
-    echo "  Found existing compressed RIPE file: $RIPE_FILE"
-  else
-    echo "  Downloading $RIPE_FILE from $RIPE_URL..."
-    curl -f -O "$RIPE_URL" || {
-      echo "Failed to download $RIPE_URL"
-      exit 1
-    }
-  fi
-
-  echo "Decompressing $RIPE_FILE -> $RIPE_FILE_UNZIP..."
-  # '-k' keeps the original .bz2; '-f' overwrites existing
-  bunzip2 -kf "$RIPE_FILE"
-
-  if [ ! -f "$RIPE_FILE_UNZIP" ]; then
-    echo "Error: decompression failed, $RIPE_FILE_UNZIP not found."
-    exit 1
-  fi
-}
-
-# Download the APNIC file if missing, then decompress to a .txt file
-download_apnic() {
-  if [ -f "$APNIC_FILE_UNZIP" ]; then
-    echo "  Found existing uncompressed APNIC file: $APNIC_FILE_UNZIP (skipping download)"
-    return
-  fi
-
-  if [ -f "$APNIC_FILE" ]; then
-    echo "  Found existing compressed APNIC file: $APNIC_FILE"
-  else
-    echo "  Downloading $APNIC_FILE from $APNIC_URL..."
-    curl -f -O "$APNIC_URL" || {
-      echo "Failed to download $APNIC_URL"
-      exit 1
-    }
-  fi
-
-  echo "Decompressing $APNIC_FILE -> $APNIC_FILE_UNZIP..."
-  gunzip "$APNIC_FILE"
-  # '-k' keeps the original .bz2; '-f' overwrites existing
-
-  if [ ! -f "$APNIC_FILE_UNZIP" ]; then
-    echo "Error: decompression failed, $APNIC_FILE_UNZIP not found."
-    exit 1
-  fi
-}
-
 parse_rir_delegation() {
   echo "Parsing RIR files into $ASN2COUNTRY..."
   rm -f "$ASN2COUNTRY"
 
   # Process any file named "delegated-*-extended-<DATE>" (excluding .bz2)
-  for file in delegated-*-"${DATE}"; do
+  for file in delegated-*-latest; do
     # skip the compressed ones if they exist
     if [[ "$file" == *.bz2 ]]; then
       continue
     fi
-    # ensure it's a real file
     [ -f "$file" ] || continue
 
     echo "  Processing $file"
@@ -281,7 +226,6 @@ create_delegated_prefix_country() {
   echo "Creating $DELEGATED_PREFIX_COUNTRY from delegated data (only power-of-two allocations)..."
   rm -f "$DELEGATED_PREFIX_COUNTRY"
 
-  # Write an AWK script that:
   # 1. Uses an arithmetic function is_power_of_two(x) that doubles 1 until it reaches or exceeds x.
   # 2. For IPv4, uses find_cidr4() to determine the CIDR.
   # 3. For IPv6, uses find_cidr6() to determine the CIDR.
@@ -360,7 +304,7 @@ BEGIN {
 EOF
 
   # Process all delegated files (skipping any compressed ones) and append to the output file.
-  for file in delegated-*-"${DATE}"; do
+  for file in delegated-*-latest; do
     [[ "$file" =~ \.bz2$|\.gz$ ]] && continue
     [ -f "$file" ] || continue
 
@@ -384,10 +328,8 @@ EOF
 ##################
 # 4) Main Script #
 ##################
-echo "=== Downloading RIR data for date=$DATE ==="
-download_other_rirs
-download_ripe
-download_apnic
+echo "=== Downloading latest RIR data ==="
+download_rirs
 
 echo "=== Parsing RIR data into $ASN2COUNTRY ==="
 parse_rir_delegation
@@ -403,10 +345,11 @@ echo "=== Building delegated prefix->Country mapping ==="
 create_delegated_prefix_country
 
 echo "=== Compressing files ==="
-bzip asn2country.txt
-bzip prefix2asn.txt
-bzip prefix2country.txt
-bzip prefix2countrydelegated.txt
+rm -rf *.bz2
+bzip2 asn2country.txt
+bzip2 prefix2asn.txt
+bzip2 prefix2country.txt
+bzip2 prefix2countrydelegated.txt
 
 echo ""
 echo "All done! Key outputs:"
